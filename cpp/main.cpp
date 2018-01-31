@@ -7,12 +7,12 @@ int main(int argc, const char * argv[]) {
     //////////////////////////////////////
     // User input data
     NetworkSize size = {2, 20, 10, 1};
-    size_t Epoch = 1000;
+    size_t Epoch = 3000;
     size_t BatchSize = 100;
-    double LearningRate = 0.01;
-    double L2Strength = 0.02;
-    size_t TrainingSetSize = 1000;
-    size_t ValidationSetSize = 1000;
+    double LearningRate = 0.1;
+    double L2Strength = 0.01;
+    size_t TrainingSetSize = 3000;
+    size_t ValidationSetSize = 300;
     size_t TestSetSize = 1000;
     double DataNoise = 0.01;
     //////////////////////////////////////

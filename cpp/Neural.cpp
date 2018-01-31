@@ -150,92 +150,47 @@ double NeuralNetwork::TestNetwork(const Data &data)
 
 void NeuralNetwork::SaveNetwork(const std::string &filename)
 {
+    assert(filename.size() > 0);
     std::cout << "Saving neural network to " << filename << "... ";
     
     std::ofstream inFile;
     inFile.precision(std::numeric_limits<double>::max_digits10);
     
-    if (filename.size() > 0) {
-        inFile.open(filename, std::ios::trunc);
-        for (int i = 0; i < layerSize.size(); ++i) {
-            inFile << layerSize[i] << "\t";
-        }
-        inFile << std::endl;
-        inFile << iLayer.W << std::endl << iLayer.b << std::endl;
-        for (int i = 0; i < hLayer.size(); ++i) {
-            inFile << hLayer[i].W << std::endl << hLayer[i].b << std::endl;
-        }
-        inFile << oLayer.W << std::endl << oLayer.b << std::endl;
-        inFile.close();
+    inFile.open(filename, std::ios::trunc);
+    for (int i = 0; i < layerSize.size(); ++i) {
+        inFile << layerSize[i] << "\t";
     }
+    inFile << std::endl;
+    inFile << iLayer.W << std::endl << iLayer.b << std::endl;
+    for (int i = 0; i < hLayer.size(); ++i) {
+        inFile << hLayer[i].W << std::endl << hLayer[i].b << std::endl;
+    }
+    inFile << oLayer.W << std::endl << oLayer.b << std::endl;
+    inFile.close();
     
     std::cout << "completed. " << std::endl;
 }
 
 void NeuralNetwork::LoadNetwork(const std::string &filename)
 {
-    std::vector<std::vector<double>> data;
     std::ifstream infile(filename);
-    
     assert(infile);
     
     std::cout << "Importing nerual network from " << filename << "... ";
     std::string line;
-    while (getline(infile, line))
-    {
-        std::istringstream iss(line);
-        data.push_back(std::vector<double>(std::istream_iterator<double>(iss),
-                                           std::istream_iterator<double>()));
-    }
-    assert(data.size() > 0);
     
-    layerSize.resize(data[0].size());
-    for (int i = 0; i < data[0].size(); ++i) {
-        layerSize[i] = data[0][i];
-    }
-    
+    getline(infile, line);
+    std::istringstream iss(line);
+    layerSize = std::vector<size_t>(std::istream_iterator<size_t>(iss),
+                                    std::istream_iterator<size_t>());
+   
     ConstructNetworks();
     
-    size_t row_flag = 1;
-    
-    for (int i = 0; i < iLayer.W.rows(); ++i) {
-        assert(data[row_flag].size() == iLayer.W.cols());
-        iLayer.W.row(i) = VectorXd::Map(&data[row_flag][0], data[row_flag].size());
-        data[row_flag].clear();
-        ++row_flag;
-    }
-    for (int i = 0; i < iLayer.b.rows(); ++i) {
-        assert(data[row_flag].size() == iLayer.b.cols());
-        iLayer.b.row(i) = VectorXd::Map(&data[row_flag][0], data[row_flag].size());
-        data[row_flag].clear();
-        ++row_flag;
-    }
+    iLayer.ImportFromFile(infile);
     for (int k = 0; k < hLayer.size(); ++k) {
-        for (int i = 0; i < hLayer[k].W.rows(); ++i) {
-            assert(data[row_flag].size() == hLayer[k].W.cols());
-            hLayer[k].W.row(i) = VectorXd::Map(&data[row_flag][0], data[row_flag].size());
-            data[row_flag].clear();
-            ++row_flag;
-        }
-        for (int i = 0; i < hLayer[k].b.rows(); ++i) {
-            assert(data[row_flag].size() == hLayer[k].b.cols());
-            hLayer[k].b.row(i) = VectorXd::Map(&data[row_flag][0], data[row_flag].size());
-            data[row_flag].clear();
-            ++row_flag;
-        }
+        hLayer[k].ImportFromFile(infile);
     }
-    for (int i = 0; i < oLayer.W.rows(); ++i) {
-        assert(data[row_flag].size() == oLayer.W.cols());
-        oLayer.W.row(i) = VectorXd::Map(&data[row_flag][0], data[row_flag].size());
-        data[row_flag].clear();
-        ++row_flag;
-    }
-    for (int i = 0; i < oLayer.b.rows(); ++i) {
-        assert(data[row_flag].size() == oLayer.b.cols());
-        oLayer.b.row(i) = VectorXd::Map(&data[row_flag][0], data[row_flag].size());
-        data[row_flag].clear();
-        ++row_flag;
-    }
+    oLayer.ImportFromFile(infile);
     
     std::cout << "completed. " << std::endl;
 }
@@ -251,9 +206,6 @@ void Layer::Resize()
 
 void Layer::RandomInitialize(double low_bound, double up_bound)
 {
-    // Initialize both weight and bias using random numbers uniformally distributed between
-    // low_bound and up_bound
-    
     assert(low_bound < up_bound);
     
     for (int i = 0; i < outputN; ++i) {
@@ -270,7 +222,6 @@ void Layer::Forward(VectorXd &y, const VectorXd &x)
     y = W * x + b;
     
     // sigmoid
-    // maybe implement by Eigen bitwise function later
     for (int i = 0; i < outputN; ++i) {
         y(i) = 1 / (1 + exp(-y(i)));
     }
@@ -283,6 +234,7 @@ void Layer::Backward(VectorXd &sensitivity)
     
     sensitivity = W.transpose() * s;
     
+    // only true for sigmoid
     for (int i = 0; i < sensitivity.size(); ++i) {
         sensitivity(i) *= p(i) * (1 - p(i));
     }
@@ -296,6 +248,28 @@ void Layer::Update(double r, double beta)
     
     dW = MatrixXd::Zero(outputN, inputN);
     db = VectorXd::Zero(outputN);
+}
+
+void Layer::ImportFromFile(std::ifstream &infile)
+{
+    std::vector<double> data;
+    std::string line;
+    
+    for (auto i = 0; i < W.rows(); ++i) {
+        getline(infile, line);
+        std::istringstream iss(line);
+        data = std::vector<double>(std::istream_iterator<double>(iss),
+                                   std::istream_iterator<double>());
+        W.row(i) = VectorXd::Map(&data[0], data.size());
+    }
+    
+    for (auto i = 0; i < b.rows(); ++i) {
+        getline(infile, line);
+        std::istringstream iss(line);
+        data = std::vector<double>(std::istream_iterator<double>(iss),
+                                   std::istream_iterator<double>());
+        b.row(i) = VectorXd::Map(&data[0], data.size());
+    }
 }
 
 void InputLayer::Backward()

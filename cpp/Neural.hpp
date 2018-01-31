@@ -30,6 +30,8 @@ protected:
     void Resize();
     void RandomInitialize(double low_bound, double up_bound);
     
+    void ImportFromFile(std::ifstream &infile);
+    
     void Forward(Eigen::VectorXd &y, const Eigen::VectorXd &x);
     void Backward(Eigen::VectorXd &sensitivity);
     
